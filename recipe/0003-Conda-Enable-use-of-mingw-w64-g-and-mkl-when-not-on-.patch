@@ -1,0 +1,89 @@
+From 4887aa0241c70217783fc150ce1596c48bb4aaad Mon Sep 17 00:00:00 2001
+From: Ray Donnelly <mingw.android@gmail.com>
+Date: Fri, 14 Oct 2016 12:44:51 +0100
+Subject: [PATCH 3/3] Conda: Enable use of mingw-w64 g++ and mkl when not on
+ PATH
+
+Many Windows users avoid the command-line and are unfamiliar with env. vars.
+They can elect to use Anaconda/Miniconda Python as their system Python and
+in that case would not be able to take advantage of g++ or mkl.
+
+This commit works around these issues by adding the appropriate values to
+os.environ['PATH'] if they are not already on PATH.
+---
+ theano/compat/__init__.py | 21 +++++++++++++++++++++
+ theano/configdefaults.py  | 15 +++++++++++++++
+ 2 files changed, 36 insertions(+)
+
+diff --git a/theano/compat/__init__.py b/theano/compat/__init__.py
+index 709dada..e44c469 100644
+--- a/theano/compat/__init__.py
++++ b/theano/compat/__init__.py
+@@ -101,3 +101,24 @@ class DefaultOrderedDict(OrderedDict):
+         return type(self)(self.default_factory, self)
+ 
+ __all__ += ['DefaultOrderedDict']
++
++def maybe_add_to_os_environ_pathlist(var, newpath):
++    '''Unfortunately, Conda offers to make itself the default Python
++       and those who use it that way will probably not activate envs
++       correctly meaning e.g. mingw-w64 g++ may not be on their PATH.
++
++       This function ensures that, if `newpath` is an absolute path,
++       and it is not already in os.environ[var] it gets added to the
++       front. `var` will typically be "PATH"." '''
++
++    import os
++    if os.path.isabs(newpath):
++        try:
++            oldpaths = os.environ[var].split(os.pathsep)
++            if not newpath in oldpaths:
++                newpaths = os.pathsep.join([newpath] + oldpaths)
++                os.environ[var] = newpaths
++        except:
++            pass
++
++__all__ += ['maybe_add_to_os_environ_pathlist']
+diff --git a/theano/configdefaults.py b/theano/configdefaults.py
+index 2c1ac60..3d202a2 100644
+--- a/theano/configdefaults.py
++++ b/theano/configdefaults.py
+@@ -18,6 +18,7 @@ from theano.configparser import (AddConfigVar, BoolParam, ConfigParam, EnumStr,
+                                  TheanoConfigParser, THEANO_FLAGS_DICT)
+ from theano.misc.cpucount import cpuCount
+ from theano.misc.windows import call_subprocess_Popen, output_subprocess_Popen
++from theano.compat import maybe_add_to_os_environ_pathlist
+ 
+ 
+ _logger = logging.getLogger('theano.configdefaults')
+@@ -387,6 +388,19 @@ try:
+ except OSError:
+     rc = 1
+ 
++# Anaconda on Windows has mingw-w64 packages including GCC, but they may not be on PATH.
++if rc != 0:
++    if "Continuum Analytics" in sys.version and sys.platform == "win32":
++        mingw_w64_gcc = os.path.join(os.path.dirname(sys.executable), "Library", "mingw-w64", "bin", "g++")
++        try:
++            rc = call_subprocess_Popen([mingw_w64_gcc, '-v'])
++            if rc == 0:
++                maybe_add_to_os_environ_pathlist('PATH', os.path.dirname(mingw_w64_gcc))
++        except OSError:
++            rc = 1
++        if rc != 0:
++            _logger.warning("conda g++ not available, use `conda install m2w64-toolchain`")
++
+ if rc != 0:
+     param = ""
+ 
+@@ -1224,6 +1238,7 @@ def default_blas_ldflags():
+                                                "mkl_rt"]]
+                 res = try_blas_flag(flags)
+                 if res:
++                    maybe_add_to_os_environ_pathlist('PATH', lib_path)
+                     return res
+ 
+         ret = (
+-- 
+2.9.1
+

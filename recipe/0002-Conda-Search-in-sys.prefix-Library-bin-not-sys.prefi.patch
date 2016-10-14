@@ -1,0 +1,26 @@
+From 7e50681a6481c1b3218ded5bd6227d5184428b88 Mon Sep 17 00:00:00 2001
+From: Ray Donnelly <mingw.android@gmail.com>
+Date: Fri, 14 Oct 2016 12:46:12 +0100
+Subject: [PATCH 2/3] Conda: Search in sys.prefix/Library/bin, not
+ sys.prefix/DLLs for MKL DLLs
+
+---
+ theano/configdefaults.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/theano/configdefaults.py b/theano/configdefaults.py
+index b4ed24a..2c1ac60 100644
+--- a/theano/configdefaults.py
++++ b/theano/configdefaults.py
+@@ -1217,7 +1217,7 @@ def default_blas_ldflags():
+                 _logger.warning('Conda mkl is not available, use `conda install mkl-service`: %s', e)
+             else:
+                 # This branch is executed if no exception was raised
+-                lib_path = os.path.join(sys.prefix, 'DLLs')
++                lib_path = os.path.join(sys.prefix, 'Library', 'bin')
+                 flags = ['-L%s' % lib_path]
+                 flags += ['-l%s' % l for l in ["mkl_core",
+                                                "mkl_intel_thread",
+-- 
+2.9.1
+

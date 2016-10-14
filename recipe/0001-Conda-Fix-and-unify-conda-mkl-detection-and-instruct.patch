@@ -1,0 +1,59 @@
+From 28e3355a08c7593ebad7764d6984a0f5ee811ddc Mon Sep 17 00:00:00 2001
+From: Ray Donnelly <mingw.android@gmail.com>
+Date: Fri, 14 Oct 2016 12:37:03 +0100
+Subject: [PATCH 1/3] Conda: Fix and unify conda/mkl detection and instructions
+
+'Anaconda' does not feature in sys.version. 'Continuum Analytics' does
+for all platforms.
+
+This was breaking one aspect MKL detection. A follow-up commit will fix
+the rest of it.
+
+Also fix the log text for obtaining MKL (the user needs to install
+`mkl-service`, not `mkl`).
+---
+ theano/configdefaults.py | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/theano/configdefaults.py b/theano/configdefaults.py
+index a40e27a..b4ed24a 100644
+--- a/theano/configdefaults.py
++++ b/theano/configdefaults.py
+@@ -1205,17 +1205,16 @@ def default_blas_ldflags():
+                                           "mk2_rt"]])
+ 
+         # Anaconda
+-        if "Anaconda" in sys.version and sys.platform == "win32":
+-            # If the "mkl-service" conda package (available
+-            # through Python package "mkl") is installed and
++        if "Continuum Analytics" in sys.version and sys.platform == "win32":
++            # If the "mkl-service" conda package is installed and
+             # importable, then the libraries (installed by conda
+-            # package "mkl-rt") are actually available.  Using
+-            # "conda install mkl" will install both, as well as
+-            # optimized versions of numpy and scipy.
++            # package "mkl") are actually available.  Using
++            # "conda install mkl-service" will install both,
++            # as well as optimized versions of numpy and scipy.
+             try:
+                 import mkl  # noqa
+             except ImportError as e:
+-                _logger.info('Conda mkl is not available: %s', e)
++                _logger.warning('Conda mkl is not available, use `conda install mkl-service`: %s', e)
+             else:
+                 # This branch is executed if no exception was raised
+                 lib_path = os.path.join(sys.prefix, 'DLLs')
+@@ -1256,9 +1255,7 @@ def default_blas_ldflags():
+         # This fix some case with Anaconda 2.3 on Linux.
+         # Newer Anaconda still have this problem but only have
+         # Continuum in sys.version.
+-        if (("Anaconda" in sys.version or
+-             "Continuum" in sys.version) and
+-                "linux" in sys.platform):
++        if "Continuum Analytics" in sys.version and "linux" in sys.platform:
+             lib_path = os.path.join(sys.prefix, 'lib')
+             ret.append('-Wl,-rpath,' + lib_path)
+             res = try_blas_flag(ret)
+-- 
+2.9.1
+
